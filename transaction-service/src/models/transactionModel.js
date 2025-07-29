@@ -73,18 +73,16 @@ const TransactionModel = {
 
     // Mendapatkan semua transaksi lengkap dengan detail produk
     getAll: async () => {
-        const [rows] = await pool.execute(
-            `SELECT 
-                t.*, 
-                ci.id AS item_id, ci.product_id, ci.quantity, ci.price_per_item,
-                p.name AS product_name, p.price AS product_price
-             FROM transactions t
-             JOIN transaction_items ci ON t.id = ci.transaction_id
-             JOIN products p ON ci.product_id = p.id
-             ORDER BY t.transaction_date DESC`
-        );
-        return rows;
-    }
+    const [rows] = await pool.execute(`
+        SELECT 
+            t.id, t.customer_id, t.total_amount, t.status, t.transaction_date,
+            ci.id AS item_id, ci.product_id, ci.quantity, ci.price_per_item
+        FROM transactions t
+        JOIN transaction_items ci ON t.id = ci.transaction_id
+        ORDER BY t.transaction_date DESC`);
+    return rows;
+}
+
 };
 
 module.exports = TransactionModel;

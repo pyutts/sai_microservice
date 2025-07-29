@@ -241,41 +241,53 @@ const TransactionController = {
         }
     },
 
-    getAllTransactions: async (req, res) => {
-        try {
-            const transactionItems = await TransactionModel.getAll();
-            if (transactionItems.length === 0) {
-                return res.status(200).json([]); // No transactions
-            }
+   getAllTransactions: async (req, res) => {
+      try {
+          const transactionItems = await TransactionModel.getAll(); // ini hasil query dari DB
+          if (transactionItems.length === 0) {
+              return res.status(200).json([]);
+          }
 
-            const transactionsMap = new Map();
-            transactionItems.forEach(item => {
-                if (!transactionsMap.has(item.id)) {
-                    transactionsMap.set(item.id, {
-                        id: item.id,
-                        customer_id: item.customer_id,
-                        total_amount: item.total_amount,
-                        status: item.status,
-                        transaction_date: item.transaction_date,
-                        items: [],
-                    });
-                }
+          // Ambil unique product_id
+          const productIds = [...new Set(transactionItems.map(item => item.product_id))];
 
-                transactionsMap.get(item.id).items.push({
-                    item_id: item.item_id,
-                    product_id: item.product_id,
-                    product_name: item.product_name,
-                    quantity: item.quantity,
-                    price_per_item: item.price_per_item,
-                });
-            });
+          // Ambil semua produk dari service produk
+          const productMap = {};
+          for (const id of productIds) {
+              const { data } = await axios.get(`${process.env.PRODUCT_SERVICE_URL}/api/products/${id}`);
+              productMap[id] = data.name;
+          }
 
-            res.status(200).json(Array.from(transactionsMap.values()));
-        } catch (error) {
-            console.error('Error getting all transactions:', error);
-            res.status(500).json({ message: 'Internal server error.' });
-        }
-    },
+          // Bungkus ke bentuk nested transaction -> items[]
+          const transactionsMap = new Map();
+          transactionItems.forEach(item => {
+              if (!transactionsMap.has(item.id)) {
+                  transactionsMap.set(item.id, {
+                      id: item.id,
+                      customer_id: item.customer_id,
+                      total_amount: item.total_amount,
+                      status: item.status,
+                      transaction_date: item.transaction_date,
+                      items: [],
+                  });
+              }
+
+              transactionsMap.get(item.id).items.push({
+                  item_id: item.item_id,
+                  product_id: item.product_id,
+                  product_name: productMap[item.product_id] || null, 
+                  quantity: item.quantity,
+                  price_per_item: item.price_per_item,
+              });
+          });
+
+          res.status(200).json(Array.from(transactionsMap.values()));
+      } catch (error) {
+          console.error('Error getting all transactions:', error.message);
+          res.status(500).json({ message: 'Internal server error.' });
+      }
+  },
+  
 };
 
 module.exports = TransactionController;

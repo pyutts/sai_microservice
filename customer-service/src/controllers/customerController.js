@@ -62,23 +62,72 @@ const axios = require('axios');
         }
     },
 
+    // Check Kode ini kembali
     // Mendapatkan customer berdasarkan user ID
     getCustomerByUserId: async (req, res) => {
         const { userId } = req.params;
 
         try {
+            // Ambil data customer
             const customer = await CustomerModel.findByUserId(userId);
-
             if (!customer) {
                 return res.status(404).json({
                     message: 'Customer not found for this user ID'
                 });
             }
 
-            res.status(200).json(customer);
+            // Ambil data user dari service user
+            const userResponse = await axios.get(`${process.env.USER_SERVICE_URL}/users/${userId}`);
+            const userInfo = userResponse.data;
+
+            // Gabungkan customer dengan user_info
+            res.status(200).json({
+                customer: customer.toObject(), 
+                user_info: {
+                    id: userId,
+                    username: userInfo.username,
+                    password: userInfo.password,
+                    role : userInfo.role
+                }
+            });
+
+
         } catch (error) {
-            console.error('Error getting customer by user ID:', error);
+            console.error('Error getting customer by user ID:', error.message);
             res.status(500).json({ message: 'Error getting customer' });
+        }
+    },
+
+
+    // Check apakah id Users sudah sesuai 
+        addCustomer: async (req, res) => {
+        const { userId, name, address, phone } = req.body;
+
+        try {
+            // Validasi userId ke service user
+            const userResponse = await axios.get(`${process.env.USER_SERVICE_URL}/api/users/${userId}`);
+            if (!userResponse || !userResponse.data) {
+                return res.status(404).json({ message: 'User not found in user service' });
+            }
+
+            // Simpan customer jika user valid
+            const newCustomer = await CustomerModel.create({
+                userId,
+                name,
+                address,
+                phone
+            });
+
+            res.status(201).json(newCustomer);
+
+        } catch (error) {
+            console.error('Error adding customer:', error.message);
+
+            if (error.response && error.response.status === 404) {
+                return res.status(404).json({ message: 'User not found in user service' });
+            }
+
+            res.status(500).json({ message: 'Error adding customer' });
         }
     },
 
